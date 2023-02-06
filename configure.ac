@@ -69,7 +69,7 @@ need_lzo="no"
 need_xattr="no"
 need_cmocka="no"
 need_selinux="no"
-
+need_ima_evm="no"
 
 AM_COND_IF([UNIT_TESTS], [
 	need_cmocka="yes"
@@ -162,6 +162,15 @@ AC_ARG_WITH([selinux],
 	no) ;;
 	*) AC_MSG_ERROR([bad value ${withval} for --with-selinux]) ;;
 	esac])
+
+AC_ARG_WITH([ima-evm],
+        [AS_HELP_STRING([--with-ima-evm],
+                [Enable support for ima-evm extended attributes])],
+        [case "${withval}" in
+        yes) need_ima_evm="yes";;
+        no) ;;
+        *) AC_MSG_ERROR([bad value ${withval} for --with-ima-evm]) ;;
+        esac])
 
 ##### search for dependencies #####
 
@@ -285,6 +294,7 @@ fi
 AM_CONDITIONAL([WITHOUT_LZO], [test "x$need_lzo" != "xyes"])
 AM_CONDITIONAL([WITHOUT_XATTR], [test "x$need_xattr" != "xyes"])
 AM_CONDITIONAL([WITH_SELINUX], [test "x$need_selinux" == "xyes"])
+AM_CONDITIONAL([WITH_IMA_EVM], [test "x${need_ima_evm}" == "xyes"])
 
 AC_CHECK_SIZEOF([off_t])
 AC_CHECK_SIZEOF([loff_t])
