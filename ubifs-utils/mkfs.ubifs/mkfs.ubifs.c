@@ -1191,6 +1191,11 @@ static int inode_add_xattr(struct ubifs_ino_node *host_ino,
 			goto out_free;
 		}
 
+		/* Adding selinux xattr has been taken care by inode_add_selinux_xattr() */
+		if (strncmp("security.selinux", name, 16) == 0) {
+			continue;
+		}
+
 		if (!strcmp(name, "user.image-inode-number")) {
 			ino_t inum_from_xattr;
 
@@ -1356,9 +1361,10 @@ static int add_inode(struct stat *st, ino_t inum, void *data,
 	if (xattr_path) {
 #ifdef WITH_SELINUX
 		ret = inode_add_selinux_xattr(ino, xattr_path, st, inum);
-#else
-		ret = inode_add_xattr(ino, xattr_path, st, inum);
+		if (ret < 0)
+			return ret;
 #endif
+		ret = inode_add_xattr(ino, xattr_path, st, inum);
 		if (ret < 0)
 			return ret;
 	}
@@ -2236,6 +2242,10 @@ static int finalize_leb_cnt(void)
 static int write_super(void)
 {
 	struct ubifs_sb_node sup;
+#ifdef WITH_IMA_EVM
+	unsigned char data_uuid[] = { 0x7A, 0x0C, 0x93, 0xE9, 0xD2, 0xFD, 0x46, 0x55, 0xA9, 0x4F, 0xA4, 0x57, 0x1A, 0xC9, 0xB5, 0xF7 };
+	unsigned char rfs_uuid[] = { 0x6F, 0x2B, 0x9A, 0x5B, 0x32, 0x07, 0x4D, 0x8B, 0x84, 0x7C, 0x0F, 0x4F, 0xF9, 0xD9, 0x04, 0x85 };
+#endif
 
 	memset(&sup, 0, UBIFS_SB_NODE_SZ);
 
@@ -2256,7 +2266,19 @@ static int write_super(void)
 	sup.default_compr = cpu_to_le16(c->default_compr);
 	sup.rp_size       = cpu_to_le64(c->rp_size);
 	sup.time_gran     = cpu_to_le32(DEFAULT_TIME_GRAN);
+
+#ifdef WITH_IMA_EVM
+	if (strncmp("userfs.ubifs", &output[((int)strlen(output) - 12)], 12) == 0) {
+		memcpy(sup.uuid, data_uuid, 16);
+	} else if (strncmp("sysfs.ubifs", &output[((int)strlen(output) - 11)], 11) == 0) {
+		memcpy(sup.uuid, rfs_uuid, 16);
+	} else {
+		uuid_generate_random(sup.uuid);
+	}
+#else
 	uuid_generate_random(sup.uuid);
+#endif
+
 	if (verbose) {
 		char s[40];
 
